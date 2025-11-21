@@ -5,8 +5,9 @@ from streamlit_folium import st_folium
 import numpy as np
 from haversine import haversine, Unit
 import requests
+import json
 
-st.title("🏨 서울 호텔 + 주변 관광지 시각화 (JSON 데이터)")
+st.title("🏨 서울 호텔 + 주변 관광지 시각화 (두 JSON 파일 통합)")
 
 # 🔑 API Key
 api_key = "f0e46463ccf90abd0defd9c79c8568e922e07a835961b1676cdb2065ecc23494"
@@ -52,33 +53,46 @@ selected_hotel = st.selectbox("호텔 선택", hotel_names)
 hotel_info = hotels_df[hotels_df['name']==selected_hotel].iloc[0]
 
 # -------------------
-# 3) JSON 관광지 파일 선택 및 불러오기
+# 3) 두 JSON 파일 통합
 # -------------------
-tourist_file = st.selectbox("관광지 데이터 파일 선택", [
+@st.cache_data(ttl=3600)
+def load_and_merge_tourist(json_file1, json_file2):
+    # 첫 번째 파일
+    with open(json_file1, encoding='utf-8') as f:
+        data1 = json.load(f)
+    if 'DATA' in data1:
+        df1 = pd.DataFrame(data1['DATA'])
+    else:
+        df1 = pd.DataFrame(data1)
+    if '중심 좌표 X' in df1.columns and '중심 좌표 Y' in df1.columns and '최종 표기명' in df1.columns:
+        df1['lng'] = pd.to_numeric(df1['중심 좌표 X'], errors='coerce')
+        df1['lat'] = pd.to_numeric(df1['중심 좌표 Y'], errors='coerce')
+        df1['name'] = df1['최종 표기명']
+    df1 = df1.dropna(subset=['lat','lng'])
+    df1 = df1[['name','lat','lng']]
+
+    # 두 번째 파일
+    with open(json_file2, encoding='utf-8') as f:
+        data2 = json.load(f)
+    if 'DATA' in data2:
+        df2 = pd.DataFrame(data2['DATA'])
+    else:
+        df2 = pd.DataFrame(data2)
+    if 'X 좌표' in df2.columns and 'Y 좌표' in df2.columns and '명칭' in df2.columns:
+        df2['lng'] = pd.to_numeric(df2['X 좌표'], errors='coerce')
+        df2['lat'] = pd.to_numeric(df2['Y 좌표'], errors='coerce')
+        df2['name'] = df2['명칭']
+    df2 = df2.dropna(subset=['lat','lng'])
+    df2 = df2[['name','lat','lng']]
+
+    # 결합
+    df = pd.concat([df1, df2], ignore_index=True)
+    return df
+
+tourist_df = load_and_merge_tourist(
     "서울시 관광거리 정보 (한국어)(2015년).json",
     "서울시 종로구 관광데이터 정보 (한국어).json"
-])
-
-@st.cache_data(ttl=3600)
-def load_tourist_json(json_file):
-    df = pd.read_json(json_file)
-    
-    # 서울시 관광거리 정보 (한국어)(2015년)
-    if '중심 좌표 X' in df.columns and '중심 좌표 Y' in df.columns and '최종 표기명' in df.columns:
-        df['lng'] = pd.to_numeric(df['중심 좌표 X'], errors='coerce')
-        df['lat'] = pd.to_numeric(df['중심 좌표 Y'], errors='coerce')
-        df['name'] = df['최종 표기명']
-    
-    # 서울시 종로구 관광데이터 정보 (한국어)
-    elif 'X 좌표' in df.columns and 'Y 좌표' in df.columns and '명칭' in df.columns:
-        df['lng'] = pd.to_numeric(df['X 좌표'], errors='coerce')
-        df['lat'] = pd.to_numeric(df['Y 좌표'], errors='coerce')
-        df['name'] = df['명칭']
-    
-    df = df.dropna(subset=['lat','lng'])
-    return df[['name','lat','lng']]
-
-tourist_df = load_tourist_json(tourist_file)
+)
 
 # -------------------
 # 4) 호텔 반경 내 관광지 필터링

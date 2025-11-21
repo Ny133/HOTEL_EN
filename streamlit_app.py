@@ -5,20 +5,22 @@ from streamlit_folium import st_folium
 import numpy as np
 from haversine import haversine, Unit
 import requests
+from urllib.parse import quote
 
-st.title("🏨 서울 호텔 + 주변 관광지 시각화")
+st.title("🏨 서울 호텔 + 주변 관광지 시각화 (Eng API + CSV)")
 
 # 🔑 API Key
-api_key = "f0e46463ccf90abd0defd9c79c8568e922e07a835961b1676cdb2065ecc23494"
+api_key = "여기에_발급받은_API_Key_붙여넣기"
+api_key_encoded = quote(api_key)  # 안전하게 URL 인코딩
 
 # -------------------
-# 1) 호텔 정보 가져오기 (영문 API)
+# 1) 호텔 정보 가져오기 (영문 API, 안전 처리)
 # -------------------
 @st.cache_data(ttl=3600)
-def get_hotels(api_key):
-    url = "https://apis.data.go.kr/B551011/EngService2"  # 영문 API
+def get_hotels(api_key_encoded):
+    url = "http://apis.data.go.kr/B551011/EngService2/searchStay2"
     params = {
-        "ServiceKey": api_key,
+        "ServiceKey": api_key_encoded,
         "numOfRows": 50,
         "pageNo": 1,
         "MobileOS": "ETC",
@@ -29,15 +31,23 @@ def get_hotels(api_key):
     }
     try:
         res = requests.get(url, params=params, timeout=10)
+        if res.status_code != 200:
+            st.warning(f"호텔 API 상태 코드: {res.status_code}")
+            return pd.DataFrame(columns=['name','lat','lng','price','rating'])
+        if not res.text.strip():  # 빈 응답 체크
+            st.warning("호텔 API 응답이 비어있습니다.")
+            return pd.DataFrame(columns=['name','lat','lng','price','rating'])
         data = res.json()
-        items = data['response']['body']['items']['item']
+        items = data.get('response', {}).get('body', {}).get('items', {}).get('item', [])
+        if not items:
+            st.warning("호텔 API에서 데이터가 없습니다.")
+            return pd.DataFrame(columns=['name','lat','lng','price','rating'])
         df = pd.DataFrame(items)
     except Exception as e:
         st.error(f"호텔 API 호출 실패: {e}")
         return pd.DataFrame(columns=['name','lat','lng','price','rating'])
 
     # 영문 API 컬럼 확인 후 필요한 컬럼 선택
-    # 보통 Eng API도 mapx, mapy, title 컬럼 존재
     for col in ['title','mapx','mapy']:
         if col not in df.columns:
             df[col] = None
@@ -49,8 +59,7 @@ def get_hotels(api_key):
     df['rating'] = np.random.uniform(3.0,5.0, size=len(df)).round(1)
     return df
 
-
-hotels_df = get_hotels(api_key)
+hotels_df = get_hotels(api_key_encoded)
 if hotels_df.empty:
     st.warning("호텔 정보를 불러오지 못했습니다. API Key와 네트워크를 확인하세요.")
     st.stop()
@@ -63,7 +72,7 @@ selected_hotel = st.selectbox("호텔 선택", hotel_names)
 hotel_info = hotels_df[hotels_df['name']==selected_hotel].iloc[0]
 
 # -------------------
-# 3) 두 CSV 파일 통합
+# 3) 두 CSV 파일 통합 (CP949 인코딩)
 # -------------------
 @st.cache_data(ttl=3600)
 def load_and_merge_tourist(csv_file1, csv_file2):
@@ -76,7 +85,7 @@ def load_and_merge_tourist(csv_file1, csv_file2):
         ]
     ):
         try:
-            df = pd.read_csv(csv_file, encoding='cp949')  # <- 여기만 수정
+            df = pd.read_csv(csv_file, encoding='cp949')
             for new_col, old_col in mapping.items():
                 if old_col in df.columns:
                     df[new_col] = pd.to_numeric(df[old_col], errors='coerce') if new_col in ['lat','lng'] else df[old_col]
@@ -90,7 +99,6 @@ def load_and_merge_tourist(csv_file1, csv_file2):
             dfs.append(pd.DataFrame(columns=['name','lat','lng']))
     merged_df = pd.concat(dfs, ignore_index=True)
     return merged_df
-
 
 tourist_df = load_and_merge_tourist(
     "서울시 관광거리 정보 (한국어)(2015년).csv",

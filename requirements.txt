@@ -1,7 +1,8 @@
 streamlit
 pandas
 folium
-st_folium
-numpy
-haversine, Unit
+streamlit_folium
+haversine
 requests
+numpy
+plotly

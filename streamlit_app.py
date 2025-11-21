@@ -7,7 +7,7 @@ from haversine import haversine, Unit
 import requests
 import json
 
-st.title("🏨 서울 호텔 + 주변 관광지 시각화 (두 JSON 파일 통합, 안전 실행)")
+st.title("🏨 서울 호텔 + 주변 관광지 시각화 (JSON 안전 처리)")
 
 # 🔑 API Key
 api_key = "f0e46463ccf90abd0defd9c79c8568e922e07a835961b1676cdb2065ecc23494"
@@ -62,18 +62,8 @@ selected_hotel = st.selectbox("호텔 선택", hotel_names)
 hotel_info = hotels_df[hotels_df['name']==selected_hotel].iloc[0]
 
 # -------------------
-# 3) 두 JSON 파일 통합 (KeyError 방지)
+# 3) 두 JSON 파일 통합 (dict 안전 처리)
 # -------------------
-# -------------------
-# 3) 두 JSON 파일 통합 (디버그용)
-# -------------------
-# 업로드된 파일(또는 경로) 그대로 사용
-with open("서울시 관광거리 정보 (한국어)(2015년).json", encoding='utf-8') as f:
-    data = json.load(f)
-
-st.write("JSON 타입:", type(data))
-st.write("앞 3개 항목:", data[:3])  # 앞 3개 항목 확인
-
 @st.cache_data(ttl=3600)
 def load_and_merge_tourist(json_file1, json_file2):
     dfs = []
@@ -87,11 +77,26 @@ def load_and_merge_tourist(json_file1, json_file2):
         try:
             with open(json_file, encoding='utf-8') as f:
                 data = json.load(f)
+            # dict 안 리스트 확인
             if 'DATA' in data:
                 df = pd.DataFrame(data['DATA'])
             else:
-                df = pd.DataFrame(data)
-            # 컬럼 존재 확인 후 생성
+                # 그냥 dict이면 list 변환 시도
+                if isinstance(data, dict):
+                    # dict 안에 리스트가 있는 키 찾아서 선택
+                    list_found = False
+                    for v in data.values():
+                        if isinstance(v, list):
+                            df = pd.DataFrame(v)
+                            list_found = True
+                            break
+                    if not list_found:
+                        df = pd.DataFrame()
+                elif isinstance(data, list):
+                    df = pd.DataFrame(data)
+                else:
+                    df = pd.DataFrame()
+            # 컬럼명 통일
             for new_col, old_col in mapping.items():
                 if old_col in df.columns:
                     df[new_col] = pd.to_numeric(df[old_col], errors='coerce') if new_col in ['lat','lng'] else df[old_col]

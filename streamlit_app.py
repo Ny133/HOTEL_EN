@@ -64,6 +64,16 @@ hotel_info = hotels_df[hotels_df['name']==selected_hotel].iloc[0]
 # -------------------
 # 3) 두 JSON 파일 통합 (KeyError 방지)
 # -------------------
+# -------------------
+# 3) 두 JSON 파일 통합 (디버그용)
+# -------------------
+# 업로드된 파일(또는 경로) 그대로 사용
+with open("서울시 관광거리 정보 (한국어)(2015년).json", encoding='utf-8') as f:
+    data = json.load(f)
+
+st.write("JSON 타입:", type(data))
+st.write("앞 3개 항목:", data[:3])  # 앞 3개 항목 확인
+
 @st.cache_data(ttl=3600)
 def load_and_merge_tourist(json_file1, json_file2):
     dfs = []

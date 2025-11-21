@@ -7,7 +7,7 @@ from haversine import haversine, Unit
 import requests
 from urllib.parse import quote
 
-st.title("🏨 서울 호텔 + 주변 관광지 시각화 (Eng API + CSV)")
+st.title("🏨 Seoul Hotel + Visualization of Nearby Tourist Attractions")
 
 # 🔑 API Key
 api_key = "f0e46463ccf90abd0defd9c79c8568e922e07a835961b1676cdb2065ecc23494"
@@ -68,7 +68,7 @@ if hotels_df.empty:
 # 2) 호텔 선택
 # -------------------
 hotel_names = hotels_df['name'].tolist()
-selected_hotel = st.selectbox("호텔 선택", hotel_names)
+selected_hotel = st.selectbox("Select_Hotel", hotel_names)
 hotel_info = hotels_df[hotels_df['name']==selected_hotel].iloc[0]
 
 # -------------------
@@ -112,7 +112,7 @@ if tourist_df.empty:
 # -------------------
 # 4) 호텔 반경 내 관광지 필터링
 # -------------------
-radius_m = st.slider("관광지 반경 (m)", 500, 2000, 1000, step=100)
+radius_m = st.slider("Tourist attraction radius (m)", 500, 2000, 1000, step=100)
 
 def get_nearby_tourist(hotel_lat, hotel_lng, tourist_df, radius_m):
     nearby = []
@@ -147,15 +147,15 @@ for idx, row in nearby_tourist_df.iterrows():
         popup=row['name']
     ).add_to(m)
 
-st.subheader(f"{selected_hotel} 주변 관광지 지도")
+st.subheader(f"{selected_hotel} a map of nearby tourist attractions")
 st_folium(m, width=700, height=500, returned_objects=[])
 
 # -------------------
 # 6) 호텔 정보 + 관광지 목록
 # -------------------
-st.subheader("호텔 정보 및 주변 관광지")
-st.write(f"**호텔명:** {hotel_info['name']}")
-st.write(f"**가격:** {hotel_info['price']}원")
-st.write(f"**별점:** {hotel_info['rating']}")
-st.write(f"**주변 관광지 수:** {len(nearby_tourist_df)}")
+st.subheader("Hotel Info & Visualization of Nearby Tourist Attractions")
+st.write(f"**Hotel:** {hotel_info['name']}")
+st.write(f"**Price:** {hotel_info['price']}원")
+st.write(f"**Score:** {hotel_info['rating']}")
+st.write(f"**Number of nearby tourist attractions:** {len(nearby_tourist_df)}")
 st.dataframe(nearby_tourist_df[['name']])

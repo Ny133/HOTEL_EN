@@ -12,11 +12,11 @@ st.title("🏨 서울 호텔 + 주변 관광지 시각화")
 api_key = "f0e46463ccf90abd0defd9c79c8568e922e07a835961b1676cdb2065ecc23494"
 
 # -------------------
-# 1) 호텔 정보 가져오기
+# 1) 호텔 정보 가져오기 (영문 API)
 # -------------------
 @st.cache_data(ttl=3600)
 def get_hotels(api_key):
-    url = "http://apis.data.go.kr/B551011/EngService2/searchStay2"
+    url = "http://apis.data.go.kr/B551011/EngService2/searchStay2"  # 영문 API
     params = {
         "ServiceKey": api_key,
         "numOfRows": 50,
@@ -36,6 +36,8 @@ def get_hotels(api_key):
         st.error(f"호텔 API 호출 실패: {e}")
         return pd.DataFrame(columns=['name','lat','lng','price','rating'])
 
+    # 영문 API 컬럼 확인 후 필요한 컬럼 선택
+    # 보통 Eng API도 mapx, mapy, title 컬럼 존재
     for col in ['title','mapx','mapy']:
         if col not in df.columns:
             df[col] = None
@@ -46,6 +48,7 @@ def get_hotels(api_key):
     df['price'] = np.random.randint(150000, 300000, size=len(df))
     df['rating'] = np.random.uniform(3.0,5.0, size=len(df)).round(1)
     return df
+
 
 hotels_df = get_hotels(api_key)
 if hotels_df.empty:
